@@ -171,7 +171,7 @@ class PersistentApprovalView(discord.ui.View):
             return None, None
         if not core.can_approve(approver, doc):
             await interaction.response.send_message(
-                "❌ Insufficient rank to counter-sign this document (or self-approval blocked).",
+                "❌ Patente insuficiente para contra-assinar este documento (ou autoaprovação restrita ao High Command).",
                 ephemeral=True,
             )
             return None, None

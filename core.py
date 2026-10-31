@@ -40,11 +40,20 @@ def can_issue(officer: dict[str, Any] | None, template: dict[str, Any]) -> bool:
     return int(officer.get("rank_level") or 0) >= int(template["min_issue_level"])
 
 
+def is_high_command(officer: dict[str, Any] | None) -> bool:
+    if not officer or officer.get("status") != "active":
+        return False
+    if officer.get("is_admin"):
+        return True
+    return int(officer.get("rank_level") or 0) >= 11
+
+
 def can_approve(officer: dict[str, Any] | None, doc: dict[str, Any]) -> bool:
     if not officer or officer.get("status") != "active":
         return False
-    if int(officer["id"]) == int(doc["issuer_id"]):
-        return False  # Anti-autoaprovação: quem emite nunca aprova o próprio documento
+    is_self = int(officer["id"]) == int(doc["issuer_id"])
+    if is_self and not is_high_command(officer):
+        return False  # Self-approval proibido para patentes regulares; High Command pode se autoaprovar
     snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
     if officer.get("is_admin"):
         return True
