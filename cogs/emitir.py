@@ -7,18 +7,21 @@ from discord.ext import commands
 import config
 import core
 import db
+import i18n_docs
 import render
 from cogs.aprovacao import post_draft_to_approval_channel
 from cogs.sync import sync_member_rank
 
 
 class DynamicTemplateModal(discord.ui.Modal):
-    def __init__(self, bot: commands.Bot, officer: dict, template: dict, initial_values: dict | None = None):
-        super().__init__(title=f"Issue [{template['code']}] {template['name'][:32]}")
+    def __init__(self, bot: commands.Bot, officer: dict, template: dict, initial_values: dict | None = None, lang: str = "pt"):
         self.bot = bot
         self.officer = officer
         self.template = template
-        self.fields_meta = json.loads(template["fields_json"])[:5]
+        self.lang = lang if lang in ("pt", "en") else "pt"
+        self.resolved = i18n_docs.resolve_template_text(template["code"], template, lang=self.lang)
+        super().__init__(title=f"[{template['code']}] {self.resolved['name'][:34]}")
+        self.fields_meta = (self.resolved.get("fields") or json.loads(template["fields_json"]))[:5]
         self.inputs: dict[str, discord.ui.TextInput] = {}
 
         for f in self.fields_meta:
@@ -37,12 +40,14 @@ class DynamicTemplateModal(discord.ui.Modal):
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         values = {k: str(inp.value).strip() for k, inp in self.inputs.items()}
+        values["_lang"] = self.lang
         preview_doc = {
             "id": "PREVIEW",
             "control_no": None,
             "template_snapshot": self.template,
             "data_json": values,
             "status": "PENDING",
+            "lang": self.lang,
             "issuer_name": self.officer["rp_name"],
             "issuer_badge": self.officer["badge"],
             "issuer_rank": self.officer.get("rank_name") or "Officer",
@@ -54,16 +59,20 @@ class DynamicTemplateModal(discord.ui.Modal):
             await interaction.followup.send(f"❌ Failed to render preview: {e}", ephemeral=True)
             return
 
+        is_pt = self.lang == "pt"
         emb = discord.Embed(
-            title=f"📄 Draft Preview — [{self.template['code']}] {self.template['name']}",
+            title=f"📄 Prévias da Minuta — [{self.template['code']}] {self.resolved['name']}" if is_pt else f"📄 Draft Preview — [{self.template['code']}] {self.template['name']}",
             description=(
+                "Revise a minuta renderizada abaixo. Clique em **Enviar para Aprovação** para despachar ao comando, "
+                "ou **Editar Campos** para alterar."
+                if is_pt else
                 "Review the rendered draft below. Click **Submit for Command Approval** to send it to the "
                 "approval queue, or **Edit Fields** to make changes."
             ),
             color=0x111E38,
         )
         emb.set_image(url="attachment://preview.png")
-        view = DraftPreviewConfirmView(self.bot, self.officer, self.template, values)
+        view = DraftPreviewConfirmView(self.bot, self.officer, self.template, values, lang=self.lang)
         await interaction.followup.send(
             embed=emb,
             file=discord.File(io.BytesIO(png_bytes), filename="preview.png"),
@@ -73,14 +82,15 @@ class DynamicTemplateModal(discord.ui.Modal):
 
 
 class DraftPreviewConfirmView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, officer: dict, template: dict, values: dict):
+    def __init__(self, bot: commands.Bot, officer: dict, template: dict, values: dict, lang: str = "pt"):
         super().__init__(timeout=600)
         self.bot = bot
         self.officer = officer
         self.template = template
         self.values = values
+        self.lang = lang
 
-    @discord.ui.button(label="Submit for Command Approval", style=discord.ButtonStyle.success, emoji="📨")
+    @discord.ui.button(label="Enviar / Submit Approval", style=discord.ButtonStyle.success, emoji="📨")
     async def submit_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
         await interaction.response.defer(ephemeral=True)
         try:
@@ -93,22 +103,25 @@ class DraftPreviewConfirmView(discord.ui.View):
         for child in self.children:
             child.disabled = True
         await interaction.edit_original_response(view=self)
-        await interaction.followup.send(
-            f"✅ Draft **#{doc['id']} ({self.template['code']})** submitted to Command Staff for counter-signature.",
-            ephemeral=True,
+        msg = (
+            f"✅ Minuta **#{doc['id']} ({self.template['code']})** enviada ao Comando para contra-assinatura."
+            if self.lang == "pt" else
+            f"✅ Draft **#{doc['id']} ({self.template['code']})** submitted to Command Staff for counter-signature."
         )
+        await interaction.followup.send(msg, ephemeral=True)
 
-    @discord.ui.button(label="Edit Fields", style=discord.ButtonStyle.secondary, emoji="✏️")
+    @discord.ui.button(label="Editar / Edit Fields", style=discord.ButtonStyle.secondary, emoji="✏️")
     async def edit_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
         await interaction.response.send_modal(
-            DynamicTemplateModal(self.bot, self.officer, self.template, initial_values=self.values)
+            DynamicTemplateModal(self.bot, self.officer, self.template, initial_values=self.values, lang=self.lang)
         )
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🗑️")
+    @discord.ui.button(label="Cancelar / Cancel", style=discord.ButtonStyle.danger, emoji="🗑️")
     async def cancel_btn(self, interaction: discord.Interaction, _btn: discord.ui.Button):
         for child in self.children:
             child.disabled = True
-        await interaction.response.edit_message(content="Draft cancelled.", embed=None, attachments=[], view=self)
+        cancel_txt = "Minuta cancelada." if self.lang == "pt" else "Draft cancelled."
+        await interaction.response.edit_message(content=cancel_txt, embed=None, attachments=[], view=self)
 
 
 class EmitirCog(commands.Cog):
@@ -134,9 +147,18 @@ class EmitirCog(commands.Cog):
         return choices[:25]
 
     @app_commands.command(name="emitirdocumento", description="Issue an official UPD document or DOJ judicial filing")
-    @app_commands.describe(tipo="Document template code (e.g., SW, AW, CO, SO, FQ, CM)")
+    @app_commands.describe(
+        tipo="Document template code (e.g., SW, AW, CO, SO, FQ, CM)",
+        idioma="Document language / Idioma do documento",
+    )
+    @app_commands.choices(
+        idioma=[
+            app_commands.Choice(name="🇧🇷 Português (RP Americano Traduzido)", value="pt"),
+            app_commands.Choice(name="🇺🇸 English (US Official Standards)", value="en"),
+        ]
+    )
     @app_commands.autocomplete(tipo=_template_autocomplete)
-    async def emitir_documento(self, interaction: discord.Interaction, tipo: str):
+    async def emitir_documento(self, interaction: discord.Interaction, tipo: str, idioma: str = "pt"):
         if config.DOCS_CHANNEL_ID and interaction.channel_id != config.DOCS_CHANNEL_ID:
             await interaction.response.send_message(
                 f"❌ Este comando só pode ser utilizado no canal autorizado: <#{config.DOCS_CHANNEL_ID}>.",
@@ -149,7 +171,9 @@ class EmitirCog(commands.Cog):
         officer = await asyncio.to_thread(core.get_officer_by_discord, str(interaction.user.id))
         if not officer or officer.get("status") != "active":
             await interaction.response.send_message(
-                "❌ Your officer profile is not active yet. Request admission from a Command Administrator.",
+                "❌ Your officer profile is not active yet. Request admission from a Command Administrator."
+                if idioma == "en" else
+                "❌ Seu perfil de oficial não está ativo. Solicite admissão a um Administrador do Comando.",
                 ephemeral=True,
             )
             return
@@ -162,18 +186,27 @@ class EmitirCog(commands.Cog):
         template = db.row_to_dict(row)
         if not core.can_issue(officer, template):
             await interaction.response.send_message(
-                "❌ Your current rank does not have permission to issue this document type.", ephemeral=True
+                "❌ Your current rank does not have permission to issue this document type."
+                if idioma == "en" else
+                "❌ Sua patente atual não possui permissão para emitir este tipo de documento.",
+                ephemeral=True,
             )
             return
 
         fields = json.loads(template["fields_json"])
         if template["channel"] == "modal" and len(fields) <= 5:
-            await interaction.response.send_modal(DynamicTemplateModal(self.bot, officer, template))
+            await interaction.response.send_modal(DynamicTemplateModal(self.bot, officer, template, lang=idioma))
         else:
-            url = f"{config.SITE_URL}/#/emitir/{template['code']}"
+            url = f"{config.SITE_URL}/#/emitir/{template['code']}?lang={idioma}"
+            snap_res = i18n_docs.resolve_template_text(template["code"], template, lang=idioma)
+            is_pt = idioma == "pt"
             emb = discord.Embed(
-                title=f"🌐 Complete Long-Form Filing on UPD Web Portal — [{template['code']}]",
+                title=f"🌐 Formulário Longo no Portal UPD — [{template['code']}] {snap_res['name']}" if is_pt else f"🌐 Complete Long-Form Filing on UPD Web Portal — [{template['code']}]",
                 description=(
+                    f"O documento **{snap_res['name']}** contém seções narrativas detalhadas ({len(fields)} campos) "
+                    f"com pré-visualização ao vivo em folha US-Letter.\n\n"
+                    f"👉 **[Abrir Criador de Documentos ({template['code']})]({url})**"
+                    if is_pt else
                     f"**{template['name']}** contains detailed narrative sections ({len(fields)} fields) "
                     f"with live US-Letter document preview.\n\n"
                     f"👉 **[Open Filing Composer ({template['code']})]({url})**"

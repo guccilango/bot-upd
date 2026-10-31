@@ -74,6 +74,8 @@ def validate_fields(template: dict[str, Any], data: dict[str, Any]) -> dict[str,
         if len(val) > max_len:
             raise ValueError(f"Field '{f['label']}' exceeds maximum length of {max_len} characters")
         cleaned[key] = val
+    if "_lang" in data:
+        cleaned["_lang"] = str(data["_lang"]).lower().strip()
     return cleaned
 
 

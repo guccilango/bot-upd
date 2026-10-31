@@ -30,6 +30,7 @@ from reportlab.platypus import (
 
 import config
 import core
+import i18n_docs
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 WATERMARK_PATH = ASSETS_DIR / "opacidade2.png"
@@ -125,6 +126,8 @@ class _NumberedOfficialCanvas(canvas.Canvas):
     def _draw_page_chrome(self, total_pages: int):
         w, h = letter
         m = 0.42 * inch
+        lang = str(self._meta.get("lang") or "en").lower()
+        chrome = i18n_docs.get_chrome(lang)
 
         # Outer & inner formal border rules
         self.saveState()
@@ -138,12 +141,12 @@ class _NumberedOfficialCanvas(canvas.Canvas):
         # Status stamp in center if DRAFT or REVOKED
         status = self._meta.get("status", "PENDING")
         if status != "APPROVED":
-            stamp_txt = "DRAFT — PENDING COMMAND APPROVAL" if status == "PENDING" else f"{status} — NOT VALID"
+            stamp_txt = chrome["stamp_draft"] if status == "PENDING" else chrome["stamp_invalid"]
             self.saveState()
             self.translate(w / 2, h / 2)
             self.rotate(34)
             self.setFillColor(colors.Color(0.65, 0.12, 0.12, alpha=0.11))
-            self.setFont("Helvetica-Bold", 36)
+            self.setFont("Helvetica-Bold", 32)
             self.drawCentredString(0, 0, stamp_txt)
             self.restoreState()
 
@@ -160,13 +163,13 @@ class _NumberedOfficialCanvas(canvas.Canvas):
 
         self.setFillColor(NAVY)
         self.setFont("Helvetica-Bold", 7.2)
-        self.drawString(0.66 * inch + 42, fy + 29, f"OFFICIAL RECORD · CONTROL NO. {ctrl}")
+        self.drawString(0.66 * inch + 42, fy + 29, chrome["footer_record"].format(ctrl=ctrl))
         self.setFillColor(MUTED)
         self.setFont("Helvetica", 6.5)
         self.drawString(
             0.66 * inch + 42,
             fy + 19,
-            "AUTHENTICITY VERIFICATION: Scan QR or verify control number at official UPD Registry:",
+            chrome["footer_verify"],
         )
         self.setFillColor(NAVY)
         self.setFont("Helvetica-Bold", 6.5)
@@ -174,13 +177,13 @@ class _NumberedOfficialCanvas(canvas.Canvas):
 
         self.setFillColor(NAVY)
         self.setFont("Helvetica-Bold", 7.2)
-        self.drawRightString(w - 0.66 * inch, fy + 28, "LAW ENFORCEMENT SENSITIVE")
+        self.drawRightString(w - 0.66 * inch, fy + 28, chrome["footer_sensitive"])
         self.setFillColor(MUTED)
         self.setFont("Times-Italic", 7.4)
-        self.drawRightString(w - 0.66 * inch, fy + 18, "Unified Police Department · County of Los Santos")
+        self.drawRightString(w - 0.66 * inch, fy + 18, chrome["footer_dept"])
         self.setFillColor(INK)
         self.setFont("Helvetica-Bold", 7.4)
-        self.drawRightString(w - 0.66 * inch, fy + 8, f"Page {self._pageNumber} of {total_pages}")
+        self.drawRightString(w - 0.66 * inch, fy + 8, chrome["footer_page"].format(cur=self._pageNumber, total=total_pages))
         self.restoreState()
 
 
@@ -207,7 +210,7 @@ def _draw_background_and_watermark(c: canvas.Canvas, _doc):
 def render_pdf(doc_record: dict[str, Any]) -> bytes:
     """Renders a full document dictionary into a US-Letter PDF byte stream."""
     sig_font = _ensure_fonts()
-    snap = (
+    raw_snap = (
         json.loads(doc_record["template_snapshot"])
         if isinstance(doc_record["template_snapshot"], str)
         else doc_record["template_snapshot"]
@@ -217,14 +220,27 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
         if isinstance(doc_record["data_json"], str)
         else doc_record["data_json"]
     )
+    lang = str(data.get("_lang") or doc_record.get("lang") or "pt").lower()
+    if lang not in ("pt", "en"):
+        lang = "pt"
+    chrome = i18n_docs.get_chrome(lang)
+    code = raw_snap.get("code", doc_record.get("template_code", "SW"))
+    snap = i18n_docs.resolve_template_text(code, raw_snap, lang=lang)
 
     ctrl = doc_record.get("control_no") or f"DRAFT-{doc_record.get('id', 'PREVIEW')}"
     status = doc_record.get("status", "PENDING")
     created_date = (doc_record.get("approved_at") or doc_record.get("created_at") or "")[:10] or "2026-10-31"
     category_label = (
-        "JUDICIAL FILING · DOJ / SUPERIOR COURT"
+        chrome["series_doj"]
         if snap.get("category") == "doj"
-        else "INTERNAL DEPARTMENTAL RECORD"
+        else chrome["series_internal"]
+    )
+    status_label_text = (
+        chrome["status_approved"] if status == "APPROVED"
+        else chrome["status_pending"] if status == "PENDING"
+        else chrome["status_rejected"] if status == "REJECTED"
+        else chrome["status_revoked"] if status == "REVOKED"
+        else status
     )
 
     variables = {
@@ -235,9 +251,9 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
         "issuer_badge": doc_record.get("issuer_badge", "0000"),
         "issuer_rank": doc_record.get("issuer_rank", "Officer"),
         "issuer_division": doc_record.get("issuer_division", "Patrol Division"),
-        "approver_name": doc_record.get("approver_name") or "Pending Command Review",
+        "approver_name": doc_record.get("approver_name") or ("Aguardando Comando" if lang == "pt" else "Pending Command Review"),
         "approver_badge": doc_record.get("approver_badge") or "—",
-        "approver_rank": doc_record.get("approver_rank") or "Command Staff",
+        "approver_rank": doc_record.get("approver_rank") or ("Comando Superior" if lang == "pt" else "Command Staff"),
     }
 
     buf = io.BytesIO()
@@ -293,16 +309,16 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
 
     # 1. Institutional Masthead Table
     left_masthead = [
-        Paragraph("UNIFIED POLICE DEPARTMENT", s_dept),
-        Paragraph("OFFICE OF THE CHIEF OF POLICE · HEADQUARTERS", s_subdept),
-        Paragraph("State of San Andreas · County of Los Santos", s_juris),
+        Paragraph(chrome["dept_title"], s_dept),
+        Paragraph(chrome["dept_sub"], s_subdept),
+        Paragraph(chrome["dept_juris"], s_juris),
     ]
     status_color = "#145A32" if status == "APPROVED" else "#9E1B1B"
     right_masthead = [
-        Paragraph(f"CONTROL NO.: <font color='#111E38'><b>{ctrl}</b></font>", s_meta_val),
-        Paragraph(f"DATE OF RECORD: <b>{created_date}</b>", s_meta_lbl),
-        Paragraph(f"SERIES: <b>{category_label}</b>", s_meta_lbl),
-        Paragraph(f"STATUS: <font color='{status_color}'><b>{status}</b></font>", s_meta_lbl),
+        Paragraph(f"{chrome['ctrl_label']} <font color='#111E38'><b>{ctrl}</b></font>", s_meta_val),
+        Paragraph(f"{chrome['date_label']} <b>{created_date}</b>", s_meta_lbl),
+        Paragraph(f"{chrome['series_label']} <b>{category_label}</b>", s_meta_lbl),
+        Paragraph(f"{chrome['status_label']} <font color='{status_color}'><b>{status_label_text}</b></font>", s_meta_lbl),
     ]
 
     if WATERMARK_PATH.exists():
@@ -400,8 +416,9 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
     s_sig_sub = ParagraphStyle("SigSub", fontName="Times-Roman", fontSize=7.8, leading=9.5, textColor=INK, alignment=TA_CENTER)
     s_seal_cap = ParagraphStyle("SealCap", fontName="Helvetica-Bold", fontSize=6, leading=7.5, textColor=GOLD, alignment=TA_CENTER)
 
+    req_rank = "COMMANDER+" if snap.get("category") == "doj" else "CORPORAL+"
     issuer_col = [
-        Paragraph("SUBMITTING / AFFIANT OFFICER", s_sig_role),
+        Paragraph(chrome["sig_issuer_role"], s_sig_role),
         Spacer(1, 3),
         Paragraph(html.escape(variables["issuer_name"]), s_sig_script),
         HRFlowable(width="88%", thickness=0.75, color=NAVY, spaceBefore=1.5, spaceAfter=2.5),
@@ -415,7 +432,7 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
 
     if status == "APPROVED" and doc_record.get("approver_name"):
         approver_col = [
-            Paragraph("APPROVING COMMAND AUTHORITY", s_sig_role),
+            Paragraph(chrome["sig_approver_role"], s_sig_role),
             Spacer(1, 3),
             Paragraph(html.escape(variables["approver_name"]), s_sig_script),
             HRFlowable(width="88%", thickness=0.75, color=NAVY, spaceBefore=1.5, spaceAfter=2.5),
@@ -424,16 +441,16 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
                 f"{html.escape(variables['approver_rank'])} · Badge #{html.escape(str(variables['approver_badge']))}",
                 s_sig_sub,
             ),
-            Paragraph(f"Counter-Signed: {created_date}", s_sig_sub),
+            Paragraph(chrome["sig_countersigned"].format(date=created_date), s_sig_sub),
         ]
     else:
         approver_col = [
-            Paragraph("APPROVING COMMAND AUTHORITY", s_sig_role),
+            Paragraph(chrome["sig_approver_role"], s_sig_role),
             Spacer(1, 10),
-            Paragraph("[ AWAITING COMMAND COUNTER-SIGNATURE ]", s_sig_pending),
+            Paragraph(chrome["sig_awaiting"], s_sig_pending),
             Spacer(1, 5),
             HRFlowable(width="88%", thickness=0.75, color=RULE_GRAY, spaceBefore=1.5, spaceAfter=2.5),
-            Paragraph("REQUIRED RANK LEVEL: " + ("COMMANDER+" if snap.get("category") == "doj" else "CORPORAL+"), s_sig_name),
+            Paragraph(chrome["sig_required"].format(req=req_rank), s_sig_name),
             Paragraph("Unified Police Department", s_sig_sub),
         ]
 
@@ -441,7 +458,7 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
     if SEAL_PATH.exists():
         seal_col.append(RLImage(io.BytesIO(_seal_bytes()), width=1.12 * inch, height=1.12 * inch))
         seal_col.append(Spacer(1, 1.5))
-        seal_col.append(Paragraph("OFFICIAL SEAL · AUTHENTICATED", s_seal_cap))
+        seal_col.append(Paragraph(chrome["seal_caption"], s_seal_cap))
 
     sig_tbl = Table(
         [[issuer_col, seal_col, approver_col]],
@@ -461,7 +478,7 @@ def render_pdf(doc_record: dict[str, Any]) -> bytes:
     )
     story.append(KeepTogether([sig_tbl]))
 
-    meta = {"control_no": ctrl, "status": status}
+    meta = {"control_no": ctrl, "status": status, "lang": lang}
     pdf_doc.build(
         story,
         onFirstPage=_draw_background_and_watermark,
