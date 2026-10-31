@@ -1,0 +1,133 @@
+{
+  "ranks": [
+    {"name": "Cadet", "level": 1},
+    {"name": "Officer I", "level": 2},
+    {"name": "Officer II", "level": 3},
+    {"name": "Officer III", "level": 4},
+    {"name": "Corporal", "level": 5},
+    {"name": "Sergeant I", "level": 6},
+    {"name": "Sergeant II", "level": 7},
+    {"name": "Lieutenant I", "level": 8},
+    {"name": "Lieutenant II", "level": 9},
+    {"name": "Captain", "level": 10},
+    {"name": "Commander", "level": 11},
+    {"name": "Deputy Chief", "level": 12},
+    {"name": "Assistant Chief", "level": 13},
+    {"name": "Chief of Police", "level": 14}
+  ],
+  "templates": [
+    {
+      "code": "SW",
+      "name": "Affidavit and Application for Search Warrant",
+      "category": "doj",
+      "min_issue_level": 2,
+      "min_approve_level": 11,
+      "channel": "web",
+      "title": "AFFIDAVIT AND APPLICATION FOR A SEARCH WARRANT",
+      "court_header": "IN THE SUPERIOR COURT OF THE STATE OF SAN ANDREAS\nIN AND FOR THE COUNTY OF LOS SANTOS",
+      "fields": [
+        {"key": "case_no", "label": "Case / Docket No.", "type": "text", "required": true, "max_length": 60, "placeholder": "26-CR-00418"},
+        {"key": "target_subject", "label": "Target Subject / Occupant(s)", "type": "text", "required": true, "max_length": 200, "placeholder": "Marcus Vance, DOB 04/12/1994, and unknown associates"},
+        {"key": "target_premises", "label": "Premises to be Searched (Full Address & Description)", "type": "textarea", "required": true, "max_length": 800, "placeholder": "1428 Forum Drive, Apt. 3B, Strawberry, Los Santos — a two-story stucco residential structure with a white metal security door bearing numerals '3B'."},
+        {"key": "statutes_violated", "label": "Offense(s) / Penal Code Sections", "type": "text", "required": true, "max_length": 300, "placeholder": "San Andreas Penal Code §§ 187(a) (Murder), 29800(a)(1) (Felon in Possession of Firearm)"},
+        {"key": "items_to_seize", "label": "Property & Evidence to be Seized (Schedule A)", "type": "textarea", "required": true, "max_length": 1500, "placeholder": "1. Any and all 9mm Luger firearms, magazines, ammunition, and spent casings;\n2. Cellular telephones, SIM cards, and digital storage media;\n3. Indicia of occupancy and dominion over the premises."},
+        {"key": "probable_cause", "label": "Statement of Probable Cause (Facts & Investigation)", "type": "textarea", "required": true, "max_length": 3500, "placeholder": "On October 28, 2026, at approximately 2215 hours, Unified Police Department patrol units responded to a shots-fired call..."},
+        {"key": "night_service", "label": "Night Service & Knock-Notice Request", "type": "text", "required": true, "max_length": 200, "placeholder": "Standard Daytime Service (0700-2200 hrs) — OR — Night Service Authorized (Good Cause Shown)"}
+      ],
+      "body": "<b>CASE DOCKET NO.:</b> {case_no}\n<b>TARGET SUBJECT(S):</b> {target_subject}\n<b>STATUTORY VIOLATIONS:</b> {statutes_violated}\n<b>EXECUTION PARAMETERS:</b> {night_service}\n\n<b>I. SWORN DECLARATION OF AFFIANT</b>\nI, <b>{issuer_name}</b>, Badge No. <b>#{issuer_badge}</b>, holding the rank of <b>{issuer_rank}</b> with the Unified Police Department (UPD), being first duly sworn, hereby depose and state under penalty of perjury under the laws of the State of San Andreas that I have probable cause to believe, and do believe, that evidence of a felony crime is presently concealed at the premises described below.\n\n<b>II. PARTICULAR DESCRIPTION OF PREMISES TO BE SEARCHED</b>\n{target_premises}\n\n<b>III. PARTICULAR DESCRIPTION OF PROPERTY & EVIDENCE TO BE SEIZED (SCHEDULE A)</b>\nThe following property constitutes evidence which tends to show a felony has been committed, or tends to show that a particular person has committed a felony, or consists of contraband and instrumentalities of crime:\n{items_to_seize}\n\n<b>IV. STATEMENT OF PROBABLE CAUSE</b>\nYour Affiant sets forth the following facts establishing probable cause for the issuance of this Warrant:\n{probable_cause}\n\n<b>V. PRAYER FOR ORDER</b>\nWHEREFORE, Affiant prays that a Search Warrant be issued by the Superior Court commanding any Peace Officer of the Unified Police Department to search the above-described premises and seize the enumerated property for disposition in accordance with law."
+    },
+    {
+      "code": "AW",
+      "name": "Affidavit and Application for Arrest Warrant",
+      "category": "doj",
+      "min_issue_level": 2,
+      "min_approve_level": 11,
+      "channel": "web",
+      "title": "AFFIDAVIT OF PROBABLE CAUSE FOR ARREST WARRANT",
+      "court_header": "IN THE SUPERIOR COURT OF THE STATE OF SAN ANDREAS\nIN AND FOR THE COUNTY OF LOS SANTOS",
+      "fields": [
+        {"key": "case_no", "label": "Case / Docket No.", "type": "text", "required": true, "max_length": 60, "placeholder": "26-CR-00419"},
+        {"key": "defendant_name", "label": "Defendant Full Name & Identifiers", "type": "text", "required": true, "max_length": 250, "placeholder": "DanteMoretti · State ID #88219 · DOB 11/03/1991"},
+        {"key": "last_known_address", "label": "Last Known Residence / Location", "type": "text", "required": true, "max_length": 250, "placeholder": "742 Mirror Park Blvd., Los Santos, SA"},
+        {"key": "charges", "label": "Criminal Charges (Penal Code Sections & Counts)", "type": "textarea", "required": true, "max_length": 800, "placeholder": "Count 1: Penal Code § 211 — Armed Robbery (Felony)\nCount 2: Penal Code § 245(a)(2) — Assault with a Deadly Weapon (Felony)"},
+        {"key": "probable_cause", "label": "Statement of Probable Cause", "type": "textarea", "required": true, "max_length": 3500, "placeholder": "Facts establishing that the offense was committed and that the Defendant committed it..."},
+        {"key": "bail_request", "label": "Recommended Bail / Remand Status", "type": "text", "required": true, "max_length": 150, "placeholder": "No Bail (Public Safety Risk) — OR — $250,000 Surety Bond"}
+      ],
+      "body": "<b>CASE DOCKET NO.:</b> {case_no}\n<b>DEFENDANT:</b> {defendant_name}\n<b>LAST KNOWN ADDRESS:</b> {last_known_address}\n<b>RECOMMENDED BAIL STATUS:</b> {bail_request}\n\n<b>I. SWORN COMPLAINT & AFFIDAVIT</b>\nBefore the Superior Court of the State of San Andreas personally appeared <b>{issuer_name}</b> ({issuer_rank}, Badge #{issuer_badge}), of the Unified Police Department, who, being first duly sworn, deposes and says that within the County of Los Santos the above-named Defendant committed the offenses set forth herein.\n\n<b>II. ENUMERATED CRIMINAL CHARGES</b>\n{charges}\n\n<b>III. STATEMENT OF PROBABLE CAUSE</b>\n{probable_cause}\n\n<b>IV. REQUEST FOR ISSUANCE OF WARRANT</b>\nWHEREFORE, Affiant requests that a Warrant of Arrest be issued authorizing any Peace Officer of the State of San Andreas to apprehend and bring the above-named Defendant before a Magistrate of the Superior Court without unnecessary delay."
+    },
+    {
+      "code": "CO",
+      "name": "Application for Court Order — Disclosure of Records (Subpoena / Wire & Financial)",
+      "category": "doj",
+      "min_issue_level": 4,
+      "min_approve_level": 11,
+      "channel": "web",
+      "title": "APPLICATION FOR COURT ORDER FOR DISCLOSURE OF RECORDS\nPURSUANT TO 18 U.S.C. § 2703(d) & S.A. FINANCIAL PRIVACY ACT",
+      "court_header": "IN THE SUPERIOR COURT OF THE STATE OF SAN ANDREAS\nIN AND FOR THE COUNTY OF LOS SANTOS",
+      "fields": [
+        {"key": "case_no", "label": "Case / Investigation No.", "type": "text", "required": true, "max_length": 60, "placeholder": "26-INV-00109"},
+        {"key": "target_account", "label": "Target Subject & Account / Phone / Identifier", "type": "text", "required": true, "max_length": 250, "placeholder": "Account #4401-9982 (Maze Bank) / Tel. (555) 019-4821 — Subscribed to Elena Rostova"},
+        {"key": "custodian_entity", "label": "Service Provider / Financial Institution", "type": "text", "required": true, "max_length": 200, "placeholder": "Maze Bank of Los Santos, Legal Compliance Division & Whiz Wireless Telecommunications"},
+        {"key": "records_scope", "label": "Scope of Records & Date Range Requested", "type": "textarea", "required": true, "max_length": 1200, "placeholder": "All call detail records (CDRs), cell-site location information (CSLI), wire transfer logs, and beneficiary identifiers from 09/01/2026 through present."},
+        {"key": "articulable_facts", "label": "Specific and Articulable Facts (Statutory Relevance)", "type": "textarea", "required": true, "max_length": 3500, "placeholder": "Financial intelligence and subpoenaed toll logs indicate structured cash deposits directly preceding..."},
+        {"key": "nondisclosure_period", "label": "Non-Disclosure & Sealing Order Request", "type": "text", "required": true, "max_length": 150, "placeholder": "90-Day Non-Disclosure Order (18 U.S.C. § 2705(b)) — Risk of Flight or Destruction of Evidence"}
+      ],
+      "body": "<b>INVESTIGATION NO.:</b> {case_no}\n<b>TARGET IDENTIFIER / SUBSCRIBER:</b> {target_account}\n<b>CUSTODIAN OF RECORDS:</b> {custodian_entity}\n<b>SEALING & NON-DISCLOSURE:</b> {nondisclosure_period}\n\n<b>I. STATUTORY APPLICATION</b>\n<b>{issuer_name}</b> ({issuer_rank}, Badge #{issuer_badge}), a sworn investigator of the Unified Police Department, hereby applies to the Superior Court for an Order pursuant to 18 U.S.C. § 2703(d) and the San Andreas Financial & Electronic Privacy Act compelling <b>{custodian_entity}</b> to disclose the records specified below.\n\n<b>II. RECORDS & DATA TO BE PRODUCED</b>\n{records_scope}\n\n<b>III. SPECIFIC AND ARTICULABLE FACTS</b>\nApplicant certifies that there are specific and articulable facts showing reasonable grounds to believe that the requested records are relevant and material to an ongoing felony criminal investigation:\n{articulable_facts}\n\n<b>IV. NON-DISCLOSURE CERTIFICATION</b>\nPremature notification to the subscriber would seriously jeopardize the investigation by enabling flight from prosecution, destruction of digital evidence, or intimidation of witnesses. An Order commanding the Custodian not to disclose the existence of this Application is requested for the period stated above."
+    },
+    {
+      "code": "SO",
+      "name": "Request for Authorization — Community Stabilization Operation (Pacificação)",
+      "category": "doj",
+      "min_issue_level": 8,
+      "min_approve_level": 11,
+      "channel": "web",
+      "title": "REQUEST FOR JUDICIAL & EXECUTIVE AUTHORIZATION\nSPECIAL TACTICAL & COMMUNITY STABILIZATION OPERATION (SMEAC)",
+      "court_header": "BEFORE THE DEPARTMENT OF JUSTICE & SUPERIOR COURT\nSTATE OF SAN ANDREAS · COUNTY OF LOS SANTOS",
+      "fields": [
+        {"key": "operation_name", "label": "Operation Codename & Designated Zone", "type": "text", "required": true, "max_length": 200, "placeholder": "OPERATION IRON SHIELD — Davis / Grove Street Cul-de-Sac Sector"},
+        {"key": "operational_window", "label": "Operational Window (Start & End Date/Time)", "type": "text", "required": true, "max_length": 150, "placeholder": "November 2, 2026 (0600 hrs) through November 5, 2026 (2200 hrs)"},
+        {"key": "situation", "label": "1. SITUATION (Threat Intelligence & Armed Group Activity)", "type": "textarea", "required": true, "max_length": 1500, "placeholder": "Over the preceding 14 days, the designated sector has experienced 11 confirmed Class-3 automatic weapons discharges..."},
+        {"key": "mission", "label": "2. MISSION STATEMENT", "type": "textarea", "required": true, "max_length": 800, "placeholder": "Establish continuous law enforcement presence, execute high-risk felony warrants, interdict illegal firearms trafficking, and restore civil order."},
+        {"key": "execution", "label": "3. EXECUTION & TACTICAL PHASES (Units, Perimeter & Checkpoints)", "type": "textarea", "required": true, "max_length": 1500, "placeholder": "Phase I: Perimeter containment by UPD Patrol & Air Support. Phase II: Tactical entry by SWAT & Gang Enforcement Detail. Phase III: Community stabilization patrols."},
+        {"key": "roe_safeguards", "label": "4. RULES OF ENGAGEMENT & CONSTITUTIONAL SAFEGUARDS", "type": "textarea", "required": true, "max_length": 1000, "placeholder": "Strict adherence to UPD Use-of-Force Policy (Graham v. Connor). Body-worn cameras mandatory on all personnel. Medical standby staged at Carson Ave."}
+      ],
+      "body": "<b>OPERATION DESIGNATION:</b> {operation_name}\n<b>OPERATIONAL WINDOW:</b> {operational_window}\n<b>FILING COMMAND OFFICER:</b> {issuer_name} ({issuer_rank}, Badge #{issuer_badge})\n\n<b>I. SITUATION & INTELLIGENCE ASSESSMENT</b>\n{situation}\n\n<b>II. MISSION</b>\n{mission}\n\n<b>III. EXECUTION PLAN (PHASES & DEPLOYED UNITS)</b>\n{execution}\n\n<b>IV. RULES OF ENGAGEMENT, CIVIL RIGHTS & MEDICAL SAFEGUARDS</b>\n{roe_safeguards}\n\n<b>V. COMMAND CERTIFICATION</b>\nThe Unified Police Department certifies that lesser policing measures have proven insufficient to mitigate the immediate threat to civilian life within the designated sector, and requests formal Department of Justice authorization for the operational window set forth above."
+    },
+    {
+      "code": "FQ",
+      "name": "Certificate of Firearms Qualification & UPD Weapon Authorization",
+      "category": "internal",
+      "min_issue_level": 5,
+      "min_approve_level": 5,
+      "channel": "web",
+      "title": "CERTIFICATE OF FIREARMS QUALIFICATION\n& DEPARTMENTAL WEAPON CUSTODY AUTHORIZATION",
+      "court_header": "UNIFIED POLICE DEPARTMENT · FIREARMS TRAINING & RANGE DIVISION\nSTATE OF SAN ANDREAS POST CERTIFICATION",
+      "fields": [
+        {"key": "holder_name", "label": "Authorized Individual Full Name", "type": "text", "required": true, "max_length": 150, "placeholder": "Lucas Sterling"},
+        {"key": "holder_id", "label": "State ID / Citizen Identification No.", "type": "text", "required": true, "max_length": 60, "placeholder": "SA-ID #30491"},
+        {"key": "doj_permit_ref", "label": "DOJ Firearms Permit / Referral Docket No.", "type": "text", "required": true, "max_length": 100, "placeholder": "DOJ-CCW-2026-0812"},
+        {"key": "course_score", "label": "Qualification Course & Range Score", "type": "text", "required": true, "max_length": 150, "placeholder": "POST Combat & Legal Deadly Force Qualification — Score: 96/100 (QUALIFIED)"},
+        {"key": "weapon_details", "label": "Assigned UPD Weapon (Make, Model, Caliber & Serial No.)", "type": "text", "required": true, "max_length": 250, "placeholder": "Glock 17 Gen 5 · 9x19mm Parabellum · Serial No. UPD-ARM-88412"},
+        {"key": "conditions", "label": "Custody Terms & Operational Restrictions", "type": "textarea", "required": true, "max_length": 800, "placeholder": "Weapon remains the exclusive property of the Unified Police Department. Holder is certified in safe handling, retention, and statutory use-of-force limitations."}
+      ],
+      "body": "<b>CERTIFIED INDIVIDUAL:</b> {holder_name} (State ID: {holder_id})\n<b>DOJ PERMIT / REFERRAL NO.:</b> {doj_permit_ref}\n<b>ISSUING INSTRUCTOR:</b> {issuer_name} ({issuer_rank}, Badge #{issuer_badge})\n\n<b>I. ATTESTATION OF FIREARMS QUALIFICATION</b>\nPursuant to the referral of the Department of Justice (<b>{doj_permit_ref}</b>), the Unified Police Department Firearms Training Division hereby certifies that <b>{holder_name}</b> has satisfactorily completed the mandatory classroom instruction on statutory use of force, firearm safety, and live-fire range proficiency:\n\n<b>Qualification Result:</b> {course_score}\n\n<b>II. DECLARATION OF UPD WEAPON OWNERSHIP & AUTHORIZATION TO HANDLE</b>\nThe firearm identified below is, and at all times remains, the official property of the <b>Unified Police Department (UPD)</b>:\n\n<b>Assigned Firearm:</b> {weapon_details}\n\nBy endorsement of the Range Instructor and Approving Supervisor below, the above-named individual is formally authorized to possess, carry, and operate said firearm in strict compliance with the laws of the State of San Andreas and the following conditions:\n{conditions}"
+    },
+    {
+      "code": "CM",
+      "name": "Official Departmental Commendation",
+      "category": "internal",
+      "min_issue_level": 5,
+      "min_approve_level": 5,
+      "channel": "modal",
+      "title": "OFFICIAL DEPARTMENTAL COMMENDATION\nOFFICE OF THE CHIEF OF POLICE",
+      "court_header": "UNIFIED POLICE DEPARTMENT · HONORS & AWARDS BOARD\nCOUNTY OF LOS SANTOS, STATE OF SAN ANDREAS",
+      "fields": [
+        {"key": "recipient_name", "label": "Recipient Officer Name & Badge", "type": "text", "required": true, "max_length": 150, "placeholder": "Officer II Ryan Mercer · Badge #2049"},
+        {"key": "award_class", "label": "Decoration / Commendation Class", "type": "text", "required": true, "max_length": 120, "placeholder": "Medal of Valor / Meritorious Service Citation"},
+        {"key": "incident_date", "label": "Date & Location of Meritorious Act", "type": "text", "required": true, "max_length": 150, "placeholder": "October 29, 2026 — Pacific Standard Bank, Vinewood Blvd."},
+        {"key": "citation_narrative", "label": "Citation Narrative", "type": "textarea", "required": true, "max_length": 2500, "placeholder": "For conspicuous gallantry and devotion to duty above and beyond the call of service..."}
+      ],
+      "body": "<b>TO:</b> {recipient_name}\n<b>DECORATION CONFERRED:</b> {award_class}\n<b>DATE & LOCATION OF ACTION:</b> {incident_date}\n<b>NOMINATING SUPERVISOR:</b> {issuer_name} ({issuer_rank}, Badge #{issuer_badge})\n\n<b>CITATION FOR MERITORIOUS SERVICE</b>\nThe Command Staff of the Unified Police Department takes great pride in presenting this Official Commendation to <b>{recipient_name}</b> in recognition of exceptional professionalism, courage, and steadfast dedication to the protection of life in the County of Los Santos:\n\n{citation_narrative}\n\nThis Citation shall be entered permanently into the Official Personnel Record of the recipient as a testament to the highest traditions of the Unified Police Department."
+    }
+  ]
+}
