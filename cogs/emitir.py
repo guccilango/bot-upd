@@ -137,6 +137,13 @@ class EmitirCog(commands.Cog):
     @app_commands.describe(tipo="Document template code (e.g., SW, AW, CO, SO, FQ, CM)")
     @app_commands.autocomplete(tipo=_template_autocomplete)
     async def emitir_documento(self, interaction: discord.Interaction, tipo: str):
+        if config.DOCS_CHANNEL_ID and interaction.channel_id != config.DOCS_CHANNEL_ID:
+            await interaction.response.send_message(
+                f"❌ Este comando só pode ser utilizado no canal autorizado: <#{config.DOCS_CHANNEL_ID}>.",
+                ephemeral=True,
+            )
+            return
+
         if isinstance(interaction.user, discord.Member):
             await asyncio.to_thread(sync_member_rank, interaction.user)
         officer = await asyncio.to_thread(core.get_officer_by_discord, str(interaction.user.id))
