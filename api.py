@@ -266,9 +266,6 @@ async def create_document_endpoint(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    if _BOT_REF:
-        from cogs.aprovacao import post_draft_to_approval_channel
-        await post_draft_to_approval_channel(_BOT_REF, doc)
     return doc
 
 

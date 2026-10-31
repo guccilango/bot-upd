@@ -22,8 +22,8 @@ def _extract_doc_id(message: discord.Message | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
-async def finalize_approved_document(bot: commands.Bot, doc: dict) -> dict:
-    """Renders final PDF/PNG, uploads PNG to Fivemanage, updates DB, and DMs the issuing officer."""
+async def finalize_approved_document(bot: commands.Bot, doc: dict, post_to_docs_channel: bool = True) -> dict:
+    """Renders final PDF/PNG, uploads PNG to Fivemanage, updates DB, posts to DOCS_CHANNEL_ID, and DMs the issuing officer."""
     pdf_bytes, png_bytes = await asyncio.to_thread(render.render_document_bundle, doc)
     ctrl = doc["control_no"]
     png_url = None
@@ -37,11 +37,47 @@ async def finalize_approved_document(bot: commands.Bot, doc: dict) -> dict:
             conn.execute("UPDATE documents SET png_url = ? WHERE id = ?", (png_url, doc["id"]))
         doc["png_url"] = png_url
 
+    snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
+    verify_link = f"{config.SITE_URL}/verify.html?n={ctrl}"
+
+    # Post finalized document to the official Discord channel (#emitir-docs)
+    if post_to_docs_channel and config.DOCS_CHANNEL_ID:
+        try:
+            ch = bot.get_channel(config.DOCS_CHANNEL_ID) or await bot.fetch_channel(config.DOCS_CHANNEL_ID)
+            if ch:
+                ch_emb = discord.Embed(
+                    title=f"📜 {ctrl} — [{snap['code']}] {snap['name']}",
+                    url=verify_link,
+                    description=(
+                        f"Documento oficial emitido e contra-assinado pela Supervisão de Comando da **Unified Police Department**."
+                    ),
+                    color=0x145A32,
+                )
+                ch_emb.add_field(name="Nº de Controle", value=f"`{ctrl}`", inline=True)
+                ch_emb.add_field(
+                    name="Oficial Emissor",
+                    value=f"{doc['issuer_rank']} {doc['issuer_name']} (#{doc['issuer_badge']})",
+                    inline=True,
+                )
+                ch_emb.add_field(
+                    name="Contra-Assinado Por",
+                    value=f"{doc['approver_rank']} {doc['approver_name']} (#{doc['approver_badge']})",
+                    inline=True,
+                )
+                ch_emb.add_field(name="Verificação Pública", value=f"[Verificar Autenticidade]({verify_link})", inline=True)
+                ch_files = [discord.File(io.BytesIO(pdf_bytes), filename=f"{ctrl}.pdf")]
+                if png_url:
+                    ch_emb.set_image(url=png_url)
+                else:
+                    ch_files.append(discord.File(io.BytesIO(png_bytes), filename=f"{ctrl}.png"))
+                    ch_emb.set_image(url=f"attachment://{ctrl}.png")
+                await ch.send(embed=ch_emb, files=ch_files)
+        except Exception:
+            pass
+
     # Notify issuing officer via DM
     try:
         user = await bot.fetch_user(int(doc["issuer_discord_id"]))
-        snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
-        verify_link = f"{config.SITE_URL}/verify.html?n={ctrl}"
         emb = discord.Embed(
             title=f"✅ Document Approved — {ctrl}",
             description=(
