@@ -67,6 +67,11 @@ async def finalize_approved_document(bot: commands.Bot, doc: dict, post_to_docs_
                 ch_emb.add_field(name="Verificação Pública", value=f"[Verificar Autenticidade]({verify_link})", inline=True)
                 ch_files = [discord.File(io.BytesIO(pdf_bytes), filename=f"{ctrl}.pdf")]
                 if png_url:
+                    ch_emb.add_field(
+                        name="🖼️ Link da Imagem (Fivemanage)",
+                        value=f"`{png_url}`\n[🔗 Abrir Imagem no Fivemanage]({png_url})",
+                        inline=False,
+                    )
                     ch_emb.set_image(url=png_url)
                 else:
                     ch_files.append(discord.File(io.BytesIO(png_bytes), filename=f"{ctrl}.png"))
