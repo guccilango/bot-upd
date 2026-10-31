@@ -412,7 +412,7 @@ def verify_public_record(control_no: str):
     with db.connect() as conn:
         row = conn.execute(
             """SELECT d.control_no, d.template_code, d.template_snapshot, d.status,
-                      d.approved_at, d.revoked_at, d.reject_reason,
+                      d.approved_at, d.revoked_at, d.reject_reason, d.png_url,
                       i.rp_name AS issuer_name, i.badge AS issuer_badge, COALESCE(ir.name, 'Officer') AS issuer_rank,
                       a.rp_name AS approver_name, a.badge AS approver_badge, COALESCE(ar.name, 'Command Staff') AS approver_rank
                FROM documents d
@@ -437,6 +437,7 @@ def verify_public_record(control_no: str):
         "approved_by": f"{d['approver_rank']} {d['approver_name']} (Badge #{d['approver_badge']})",
         "approved_at": d["approved_at"],
         "revoked_at": d["revoked_at"],
+        "png_url": d.get("png_url"),
         "revocation_note": d["reject_reason"] if d["status"] == "REVOKED" else None,
     }
 
