@@ -5,15 +5,15 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 def _load_dotenv():
-    env_file = BASE_DIR.parent / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
+    for candidate in (BASE_DIR / ".env", BASE_DIR.parent / ".env"):
+        if not candidate.exists():
             continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+        for line in candidate.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 _load_dotenv()
@@ -21,6 +21,7 @@ _load_dotenv()
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET", "")
+OWNER_DISCORD_ID = os.environ.get("OWNER_DISCORD_ID", "395759705789562881")
 GUILD_ID = int(os.environ.get("GUILD_ID", "0") or "0")
 APPROVAL_CHANNEL_ID = int(os.environ.get("APPROVAL_CHANNEL_ID", "0") or "0")
 BACKUP_CHANNEL_ID = int(os.environ.get("BACKUP_CHANNEL_ID", "0") or "0")

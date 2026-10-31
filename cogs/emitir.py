@@ -184,6 +184,14 @@ class EmitirCog(commands.Cog):
 
     @app_commands.command(name="meusdocumentos", description="List your recent UPD documents and their approval status")
     async def meus_documentos(self, interaction: discord.Interaction):
+        if config.DOCS_CHANNEL_ID and interaction.channel_id != config.DOCS_CHANNEL_ID:
+            await interaction.response.send_message(
+                f"❌ Este comando só pode ser utilizado no canal autorizado: <#{config.DOCS_CHANNEL_ID}>.",
+                ephemeral=True,
+            )
+            return
+        if isinstance(interaction.user, discord.Member):
+            await asyncio.to_thread(sync_member_rank, interaction.user)
         officer = await asyncio.to_thread(core.get_officer_by_discord, str(interaction.user.id))
         if not officer:
             await interaction.response.send_message("❌ Officer profile not found.", ephemeral=True)
@@ -207,6 +215,14 @@ class EmitirCog(commands.Cog):
     @app_commands.command(name="documento", description="Retrieve the official PDF and Fivemanage link of a document")
     @app_commands.describe(numero="Control number (e.g., UPD-SW-2026-0001) or Draft ID")
     async def obter_documento(self, interaction: discord.Interaction, numero: str):
+        if config.DOCS_CHANNEL_ID and interaction.channel_id != config.DOCS_CHANNEL_ID:
+            await interaction.response.send_message(
+                f"❌ Este comando só pode ser utilizado no canal autorizado: <#{config.DOCS_CHANNEL_ID}>.",
+                ephemeral=True,
+            )
+            return
+        if isinstance(interaction.user, discord.Member):
+            await asyncio.to_thread(sync_member_rank, interaction.user)
         officer = await asyncio.to_thread(core.get_officer_by_discord, str(interaction.user.id))
         with db.connect() as conn:
             if numero.isdigit():

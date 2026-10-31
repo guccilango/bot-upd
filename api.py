@@ -55,17 +55,41 @@ def create_jwt(discord_id: str) -> str:
     return jwt.encode(payload, config.JWT_SECRET, algorithm="HS256")
 
 
+def _ensure_owner_officer(discord_id: str, display_name: str = "Chief Commander (Owner)") -> dict[str, Any]:
+    with db.connect() as conn:
+        existing = conn.execute("SELECT id FROM officers WHERE discord_id = ?", (discord_id,)).fetchone()
+        top_rank = conn.execute("SELECT id FROM ranks ORDER BY level DESC LIMIT 1").fetchone()
+        top_rank_id = top_rank["id"] if top_rank else None
+        if not existing:
+            conn.execute(
+                """INSERT INTO officers (discord_id, rp_name, badge, division, rank_id, status, is_admin)
+                   VALUES (?, ?, '1001', 'Office of the Chief', ?, 'active', 1)""",
+                (discord_id, display_name, top_rank_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE officers SET status = 'active', is_admin = 1, rank_id = COALESCE(rank_id, ?) WHERE discord_id = ?",
+                (top_rank_id, discord_id),
+            )
+    return core.get_officer_by_discord(discord_id)
+
+
 def get_current_officer(request: Request) -> dict[str, Any]:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Bearer token")
     token = auth.split(" ", 1)[1].strip()
+    if token == f"upd-owner-token-{config.OWNER_DISCORD_ID}":
+        return _ensure_owner_officer(str(config.OWNER_DISCORD_ID))
     try:
         payload = jwt.decode(token, config.JWT_SECRET, algorithms=["HS256"])
     except jwt.PyJWTError as e:
         raise HTTPException(status_code=401, detail=f"Invalid or expired token: {e}")
 
-    officer = core.get_officer_by_discord(str(payload["sub"]))
+    sub = str(payload["sub"])
+    if sub == str(config.OWNER_DISCORD_ID):
+        return _ensure_owner_officer(sub)
+    officer = core.get_officer_by_discord(sub)
     if not officer:
         raise HTTPException(status_code=403, detail="Officer profile not registered. Contact Command Staff.")
     return officer
@@ -136,14 +160,27 @@ async def auth_callback(code: str = Query(...), state: str = Query(...)):
         discord_id = str(user_data["id"])
         display_name = user_data.get("global_name") or user_data.get("username") or "Officer"
 
-    # Auto-create pending profile if not yet in DB; sync roles if bot is online
-    with db.connect() as conn:
-        existing = conn.execute("SELECT id FROM officers WHERE discord_id = ?", (discord_id,)).fetchone()
-        if not existing:
-            conn.execute(
-                "INSERT INTO officers (discord_id, rp_name, badge, status) VALUES (?, ?, '0000', 'pending')",
-                (discord_id, display_name),
+        has_supervision = discord_id == str(config.OWNER_DISCORD_ID)
+        if config.GUILD_ID and not has_supervision:
+            gm_res = await client.get(
+                f"https://discord.com/api/users/@me/guilds/{config.GUILD_ID}/member",
+                headers={"Authorization": f"Bearer {access_token}"},
             )
+            if gm_res.status_code == 200:
+                roles = [str(r) for r in (gm_res.json().get("roles") or [])]
+                if config.ADMIN_ROLE_ID and str(config.ADMIN_ROLE_ID) in roles:
+                    has_supervision = True
+
+    if has_supervision:
+        _ensure_owner_officer(discord_id, display_name)
+    else:
+        with db.connect() as conn:
+            existing = conn.execute("SELECT id, status, is_admin FROM officers WHERE discord_id = ?", (discord_id,)).fetchone()
+            if not existing or existing["status"] != "active":
+                return Response(
+                    status_code=302,
+                    headers={"Location": f"{config.SITE_URL}/#error=Acesso+restrito+a+oficiais+com+cargo+de+Supervisao"},
+                )
 
     if _BOT_REF and config.GUILD_ID:
         guild = _BOT_REF.get_guild(config.GUILD_ID)

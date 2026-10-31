@@ -8,10 +8,24 @@ import db
 def sync_member_rank(member: discord.Member, db_path: str | None = None) -> dict | None:
     """Maps a Discord member's roles to the highest matching UPD rank in the database."""
     role_ids = {str(r.id) for r in member.roles}
-    is_admin_role = bool(config.ADMIN_ROLE_ID and str(config.ADMIN_ROLE_ID) in role_ids) or member.guild_permissions.administrator
+    is_owner = str(member.id) == str(config.OWNER_DISCORD_ID)
+    is_admin_role = (
+        is_owner
+        or bool(config.ADMIN_ROLE_ID and str(config.ADMIN_ROLE_ID) in role_ids)
+        or member.guild_permissions.administrator
+    )
 
     with db.connect(db_path) as conn:
         officer = conn.execute("SELECT * FROM officers WHERE discord_id = ?", (str(member.id),)).fetchone()
+        if not officer and is_admin_role:
+            top_rank = conn.execute("SELECT id FROM ranks ORDER BY level DESC LIMIT 1").fetchone()
+            top_rank_id = top_rank["id"] if top_rank else None
+            conn.execute(
+                """INSERT INTO officers (discord_id, rp_name, badge, division, rank_id, status, is_admin)
+                   VALUES (?, ?, ?, 'Office of the Chief', ?, 'active', 1)""",
+                (str(member.id), member.display_name, "1001" if is_owner else str(member.id)[-4:], top_rank_id),
+            )
+            officer = conn.execute("SELECT * FROM officers WHERE discord_id = ?", (str(member.id),)).fetchone()
         if not officer:
             return None
 
