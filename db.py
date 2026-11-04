@@ -90,11 +90,36 @@ def connect(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _migrate_ranks_schema_if_needed(conn: sqlite3.Connection) -> None:
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='ranks'").fetchone()
+    if not row or not row[0]:
+        return
+    sql = row[0].upper()
+    if "UNIQUE" in sql:
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.execute("DROP TABLE IF EXISTS ranks_migrated")
+        conn.execute(
+            """CREATE TABLE ranks_migrated (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                level INTEGER NOT NULL,
+                discord_role_id TEXT
+            )"""
+        )
+        conn.execute(
+            "INSERT INTO ranks_migrated (id, name, level, discord_role_id) SELECT id, name, level, discord_role_id FROM ranks"
+        )
+        conn.execute("DROP TABLE ranks")
+        conn.execute("ALTER TABLE ranks_migrated RENAME TO ranks")
+        conn.execute("PRAGMA foreign_keys=ON")
+
+
 def init_db(db_path: str | None = None) -> None:
     seed_file = Path(__file__).resolve().parent / "templates_seed.json"
     seed = json.loads(seed_file.read_text(encoding="utf-8"))
     with connect(db_path) as conn:
         conn.executescript(SCHEMA)
+        _migrate_ranks_schema_if_needed(conn)
         if conn.execute("SELECT COUNT(*) FROM ranks").fetchone()[0] == 0:
             for r in seed["ranks"]:
                 role_id = (r.get("discord_role_id") or "").strip() or None
@@ -110,15 +135,21 @@ def init_db(db_path: str | None = None) -> None:
                     (r["name"],),
                 ).fetchone()
                 if not existing_rk:
-                    conn.execute(
-                        "INSERT INTO ranks (name, level, discord_role_id) VALUES (?, ?, ?)",
-                        (r["name"], r["level"], role_id),
-                    )
+                    try:
+                        conn.execute(
+                            "INSERT INTO ranks (name, level, discord_role_id) VALUES (?, ?, ?)",
+                            (r["name"], r["level"], role_id),
+                        )
+                    except sqlite3.IntegrityError:
+                        pass
                 elif not existing_rk["discord_role_id"] and role_id:
-                    conn.execute(
-                        "UPDATE ranks SET discord_role_id = ? WHERE id = ?",
-                        (role_id, existing_rk["id"]),
-                    )
+                    try:
+                        conn.execute(
+                            "UPDATE ranks SET discord_role_id = ? WHERE id = ?",
+                            (role_id, existing_rk["id"]),
+                        )
+                    except sqlite3.IntegrityError:
+                        pass
         if conn.execute("SELECT COUNT(*) FROM templates").fetchone()[0] == 0:
             for t in seed["templates"]:
                 conn.execute(
