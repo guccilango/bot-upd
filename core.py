@@ -7,6 +7,55 @@ import db
 
 _VAR_RE = re.compile(r"\{([a-zA-Z0-9_]+)\}")
 
+ROLE_ALIASES: dict[str, list[str]] = {
+    "Chief of Police": ["1252386803265048667", "1271485363545706531"],
+    "Assistant Chief": ["1252390507540381737"],
+    "Deputy Chief": ["1379182875253014548", "1563702065279148112"],
+    "Commander": ["1342957283943907489", "1501714073744572456", "1252390660556722226"],
+    "Captain": ["1252390830912835724"],
+    "Lieutenant I": ["1252390961296703518"],
+    "Sergeant I": ["1252391045514133514"],
+    "Corporal": ["1252391088614805564"],
+    "CID": [
+        "1271041562880512095",
+        "1486538433668317345",
+        "1486538562408157234",
+        "1486538668142497905",
+        "1486538731908501597",
+    ],
+    "Officer III": ["1468210226497978388", "1252391303799635998"],
+    "Officer II": ["1468209961124368425"],
+    "Officer I": ["1374873966971195432"],
+    "Cadet": ["1320941964081758329", "1305691171783311411"],
+}
+
+
+def parse_nickname_badge_and_name(nick_or_name: str, fallback_id: str) -> tuple[str, str]:
+    raw = str(nick_or_name or "").strip()
+    m = re.match(r"^\s*#?(\d{1,5})\s*(?:\||-|·|—|/)\s*(.+)$", raw)
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+    return str(fallback_id)[-4:], raw or "Officer"
+
+
+def match_rank_for_role_ids(conn, role_ids: set[str]) -> dict[str, Any] | None:
+    ranks = conn.execute("SELECT id, name, level, discord_role_id FROM ranks ORDER BY level DESC").fetchall()
+    matched = []
+    for rk in ranks:
+        cand = set()
+        if rk["discord_role_id"]:
+            for part in re.split(r"[\s,;]+", str(rk["discord_role_id"]).strip()):
+                if part:
+                    cand.add(part)
+        for alias_id in ROLE_ALIASES.get(rk["name"], []):
+            cand.add(alias_id)
+        if cand & role_ids:
+            matched.append(dict(rk))
+    if not matched:
+        return None
+    matched.sort(key=lambda r: (r["level"], 1 if r["name"].upper() == "CID" else 0), reverse=True)
+    return matched[0]
+
 
 def get_officer_by_discord(discord_id: str, db_path: str | None = None) -> dict[str, Any] | None:
     with db.connect(db_path) as conn:
@@ -32,11 +81,19 @@ def get_officer_by_id(officer_id: int, db_path: str | None = None) -> dict[str, 
         return db.row_to_dict(row)
 
 
+def is_cid_officer(officer: dict[str, Any] | None) -> bool:
+    if not officer:
+        return False
+    return str(officer.get("rank_name") or "").strip().upper() == "CID"
+
+
 def can_issue(officer: dict[str, Any] | None, template: dict[str, Any]) -> bool:
     if not officer or officer.get("status") != "active" or not template.get("active", 1):
         return False
     if officer.get("is_admin"):
         return True
+    if is_cid_officer(officer):
+        return template.get("category") == "doj"
     return int(officer.get("rank_level") or 0) >= int(template["min_issue_level"])
 
 
@@ -45,6 +102,8 @@ def is_high_command(officer: dict[str, Any] | None) -> bool:
         return False
     if officer.get("is_admin"):
         return True
+    if is_cid_officer(officer):
+        return False
     return int(officer.get("rank_level") or 0) >= 11
 
 
@@ -57,6 +116,8 @@ def can_approve(officer: dict[str, Any] | None, doc: dict[str, Any]) -> bool:
     snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
     if officer.get("is_admin"):
         return True
+    if is_cid_officer(officer):
+        return False
     return int(officer.get("rank_level") or 0) >= int(snap["min_approve_level"])
 
 
@@ -65,9 +126,11 @@ def can_view_document(officer: dict[str, Any] | None, doc: dict[str, Any]) -> bo
         return False
     if officer.get("is_admin"):
         return True
+    snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
+    if is_cid_officer(officer) and snap.get("category") != "doj":
+        return False
     if int(officer["id"]) in (int(doc["issuer_id"]), int(doc.get("approver_id") or -1)):
         return True
-    snap = json.loads(doc["template_snapshot"]) if isinstance(doc["template_snapshot"], str) else doc["template_snapshot"]
     return int(officer.get("rank_level") or 0) >= int(snap["min_approve_level"])
 
 

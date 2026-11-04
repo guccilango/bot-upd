@@ -161,25 +161,49 @@ async def auth_callback(code: str = Query(...), state: str = Query(...)):
         display_name = user_data.get("global_name") or user_data.get("username") or "Officer"
 
         has_supervision = discord_id == str(config.OWNER_DISCORD_ID)
-        if config.GUILD_ID and not has_supervision:
+        member_roles: set[str] = set()
+        guild_nick = display_name
+        if config.GUILD_ID:
             gm_res = await client.get(
                 f"https://discord.com/api/users/@me/guilds/{config.GUILD_ID}/member",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             if gm_res.status_code == 200:
-                roles = [str(r) for r in (gm_res.json().get("roles") or [])]
-                if config.ADMIN_ROLE_ID and str(config.ADMIN_ROLE_ID) in roles:
+                gm_json = gm_res.json()
+                member_roles = {str(r) for r in (gm_json.get("roles") or [])}
+                guild_nick = gm_json.get("nick") or display_name
+                if config.ADMIN_ROLE_ID and str(config.ADMIN_ROLE_ID) in member_roles:
                     has_supervision = True
 
     if has_supervision:
         _ensure_owner_officer(discord_id, display_name)
     else:
         with db.connect() as conn:
-            existing = conn.execute("SELECT id, status, is_admin FROM officers WHERE discord_id = ?", (discord_id,)).fetchone()
-            if not existing or existing["status"] != "active":
+            matched_rk = core.match_rank_for_role_ids(conn, member_roles)
+            existing = conn.execute("SELECT id, status, is_admin, rank_id FROM officers WHERE discord_id = ?", (discord_id,)).fetchone()
+            if existing and existing["status"] == "suspended":
                 return Response(
                     status_code=302,
-                    headers={"Location": f"{config.SITE_URL}/#error=Acesso+restrito+a+oficiais+com+cargo+de+Supervisao"},
+                    headers={"Location": f"{config.SITE_URL}/#error=Perfil+suspenso+pelo+Comando"},
+                )
+            if matched_rk:
+                badge, parsed_name = core.parse_nickname_badge_and_name(guild_nick, discord_id)
+                div = "Criminal Investigation Division" if matched_rk["name"].upper() == "CID" else "Patrol Division"
+                if not existing:
+                    conn.execute(
+                        """INSERT INTO officers (discord_id, rp_name, badge, division, rank_id, status, is_admin)
+                           VALUES (?, ?, ?, ?, ?, 'active', 0)""",
+                        (discord_id, parsed_name, badge, div, matched_rk["id"]),
+                    )
+                else:
+                    conn.execute(
+                        "UPDATE officers SET status = 'active', rank_id = ? WHERE discord_id = ?",
+                        (matched_rk["id"], discord_id),
+                    )
+            elif not existing or existing["status"] != "active":
+                return Response(
+                    status_code=302,
+                    headers={"Location": f"{config.SITE_URL}/#error=Nenhum+cargo+policial+ou+CID+encontrado+no+Discord"},
                 )
 
     if _BOT_REF and config.GUILD_ID:
@@ -199,15 +223,35 @@ def get_me(officer: dict[str, Any] = Depends(get_current_officer)):
     return officer
 
 
+class SelfProfilePayload(BaseModel):
+    rp_name: str = Field(..., min_length=2, max_length=120)
+    badge: str | None = Field(default=None, max_length=20)
+
+
+@app.patch("/api/me/profile")
+def update_my_profile(payload: SelfProfilePayload, officer: dict[str, Any] = Depends(require_active_officer)):
+    rp_name = payload.rp_name.strip()
+    badge = (payload.badge or officer["badge"]).strip() or officer["badge"]
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE officers SET rp_name = ?, badge = ? WHERE id = ?",
+            (rp_name, badge, officer["id"]),
+        )
+    return core.get_officer_by_discord(officer["discord_id"])
+
+
 # ─── Templates & Live Preview ─────────────────────────────────────────────────
 
 @app.get("/api/templates")
 def list_templates(officer: dict[str, Any] = Depends(require_active_officer)):
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM templates ORDER BY category, code").fetchall()
+    cid_only = core.is_cid_officer(officer) and not officer.get("is_admin")
     result = []
     for r in rows:
         t = db.row_to_dict(r)
+        if cid_only and t.get("category") != "doj":
+            continue
         t["fields"] = json.loads(t["fields_json"])
         t["can_issue"] = core.can_issue(officer, t)
         if t["active"] or officer.get("is_admin"):

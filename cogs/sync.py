@@ -2,6 +2,7 @@ import asyncio
 import discord
 from discord.ext import commands, tasks
 import config
+from core import match_rank_for_role_ids, parse_nickname_badge_and_name
 import db
 
 
@@ -16,28 +17,36 @@ def sync_member_rank(member: discord.Member, db_path: str | None = None) -> dict
     )
 
     with db.connect(db_path) as conn:
+        matched_rk = match_rank_for_role_ids(conn, role_ids)
         officer = conn.execute("SELECT * FROM officers WHERE discord_id = ?", (str(member.id),)).fetchone()
-        if not officer and is_admin_role:
+        if not officer and (is_admin_role or matched_rk):
             top_rank = conn.execute("SELECT id FROM ranks ORDER BY level DESC LIMIT 1").fetchone()
-            top_rank_id = top_rank["id"] if top_rank else None
+            rank_id = matched_rk["id"] if matched_rk else (top_rank["id"] if top_rank else None)
+            badge, rp_name = parse_nickname_badge_and_name(member.display_name, str(member.id))
+            division = (
+                "Office of the Chief"
+                if is_admin_role
+                else "Criminal Investigation Division"
+                if (matched_rk and matched_rk["name"].upper() == "CID")
+                else "Patrol Division"
+            )
             conn.execute(
                 """INSERT INTO officers (discord_id, rp_name, badge, division, rank_id, status, is_admin)
-                   VALUES (?, ?, ?, 'Office of the Chief', ?, 'active', 1)""",
-                (str(member.id), member.display_name, "1001" if is_owner else str(member.id)[-4:], top_rank_id),
+                   VALUES (?, ?, ?, ?, ?, 'active', ?)""",
+                (
+                    str(member.id),
+                    rp_name,
+                    "1001" if is_owner else badge,
+                    division,
+                    rank_id,
+                    1 if is_admin_role else 0,
+                ),
             )
             officer = conn.execute("SELECT * FROM officers WHERE discord_id = ?", (str(member.id),)).fetchone()
         if not officer:
             return None
 
-        ranks = conn.execute(
-            "SELECT id, level, discord_role_id FROM ranks WHERE discord_role_id IS NOT NULL ORDER BY level DESC"
-        ).fetchall()
-        matched_rank_id = officer["rank_id"]
-        for rk in ranks:
-            if rk["discord_role_id"] and str(rk["discord_role_id"]) in role_ids:
-                matched_rank_id = rk["id"]
-                break
-
+        matched_rank_id = matched_rk["id"] if matched_rk else officer["rank_id"]
         new_admin = 1 if (is_admin_role or officer["is_admin"]) else 0
         if matched_rank_id != officer["rank_id"] or new_admin != officer["is_admin"]:
             conn.execute(

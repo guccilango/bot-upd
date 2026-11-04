@@ -1,19 +1,20 @@
 {
   "ranks": [
-    {"name": "Cadet", "level": 1},
-    {"name": "Officer I", "level": 2},
-    {"name": "Officer II", "level": 3},
-    {"name": "Officer III", "level": 4},
-    {"name": "Corporal", "level": 5},
-    {"name": "Sergeant I", "level": 6},
-    {"name": "Sergeant II", "level": 7},
-    {"name": "Lieutenant I", "level": 8},
-    {"name": "Lieutenant II", "level": 9},
-    {"name": "Captain", "level": 10},
-    {"name": "Commander", "level": 11},
-    {"name": "Deputy Chief", "level": 12},
-    {"name": "Assistant Chief", "level": 13},
-    {"name": "Chief of Police", "level": 14}
+    {"name": "Cadet", "level": 1, "discord_role_id": "1320941964081758329"},
+    {"name": "Officer I", "level": 2, "discord_role_id": "1374873966971195432"},
+    {"name": "Officer II", "level": 3, "discord_role_id": "1468209961124368425"},
+    {"name": "Officer III", "level": 4, "discord_role_id": "1468210226497978388"},
+    {"name": "CID", "level": 4, "discord_role_id": "1271041562880512095"},
+    {"name": "Corporal", "level": 5, "discord_role_id": "1252391088614805564"},
+    {"name": "Sergeant I", "level": 6, "discord_role_id": "1252391045514133514"},
+    {"name": "Sergeant II", "level": 7, "discord_role_id": ""},
+    {"name": "Lieutenant I", "level": 8, "discord_role_id": "1252390961296703518"},
+    {"name": "Lieutenant II", "level": 9, "discord_role_id": ""},
+    {"name": "Captain", "level": 10, "discord_role_id": "1252390830912835724"},
+    {"name": "Commander", "level": 11, "discord_role_id": "1342957283943907489"},
+    {"name": "Deputy Chief", "level": 12, "discord_role_id": "1379182875253014548"},
+    {"name": "Assistant Chief", "level": 13, "discord_role_id": "1252390507540381737"},
+    {"name": "Chief of Police", "level": 14, "discord_role_id": "1252386803265048667"}
   ],
   "templates": [
     {

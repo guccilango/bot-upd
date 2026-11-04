@@ -12,8 +12,8 @@ PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS ranks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    level INTEGER NOT NULL UNIQUE,
-    discord_role_id TEXT UNIQUE
+    level INTEGER NOT NULL,
+    discord_role_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS officers (
@@ -97,10 +97,28 @@ def init_db(db_path: str | None = None) -> None:
         conn.executescript(SCHEMA)
         if conn.execute("SELECT COUNT(*) FROM ranks").fetchone()[0] == 0:
             for r in seed["ranks"]:
+                role_id = (r.get("discord_role_id") or "").strip() or None
                 conn.execute(
-                    "INSERT INTO ranks (name, level) VALUES (?, ?)",
-                    (r["name"], r["level"]),
+                    "INSERT INTO ranks (name, level, discord_role_id) VALUES (?, ?, ?)",
+                    (r["name"], r["level"], role_id),
                 )
+        else:
+            for r in seed["ranks"]:
+                role_id = (r.get("discord_role_id") or "").strip() or None
+                existing_rk = conn.execute(
+                    "SELECT id, discord_role_id FROM ranks WHERE LOWER(name) = LOWER(?)",
+                    (r["name"],),
+                ).fetchone()
+                if not existing_rk:
+                    conn.execute(
+                        "INSERT INTO ranks (name, level, discord_role_id) VALUES (?, ?, ?)",
+                        (r["name"], r["level"], role_id),
+                    )
+                elif not existing_rk["discord_role_id"] and role_id:
+                    conn.execute(
+                        "UPDATE ranks SET discord_role_id = ? WHERE id = ?",
+                        (role_id, existing_rk["id"]),
+                    )
         if conn.execute("SELECT COUNT(*) FROM templates").fetchone()[0] == 0:
             for t in seed["templates"]:
                 conn.execute(
